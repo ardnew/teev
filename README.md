@@ -1,2 +1,2 @@
-# teev
-Tee an I/O stream through a valve
+# Valve
+#### Regulate and meter I/O streams in Go
