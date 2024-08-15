@@ -1,0 +1,46 @@
+# Triggered on every push or pull request event to any branch.
+name: 'test(any): all'
+on: { push, pull_request }
+jobs:
+
+  # Run `go list` to resolve the module's declared Go version
+  # and store the result in ${{ outputs.version }}.
+  go-mod-version:
+    runs-on: ubuntu-latest    
+    outputs:
+      version: ${{ steps.list.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - id: list
+        run: |
+          go list -m -f 'version="{{.GoVersion}}"' >> "${GITHUB_OUTPUT}"
+
+  # Run all tests in all packages, and record coverages,
+  # on latest versions of Ubuntu, macOS, and Windows
+  # using Go module version and other notable releases.
+  build:
+    needs: [ go-mod-version ]    
+    strategy:
+      matrix:
+        os: [ ubuntu, macos, windows ]
+        go: [ '1.13', '1.19', "${{ needs.go-mod-version.outputs.version }}" ]
+        include: [ version: latest ]
+    runs-on: ${{ matrix.os }}-${{ matrix.version }}
+    name: |
+      Go ${{ matrix.go }} (${{ matrix.os }}-${{ matrix.version }}) 
+    env:
+      coverprofile: 'cover.out'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Build
+        run: |
+          go build -v ./...
+      - name: Test
+        run: |
+          go test -v -covermode=count -coverprofile="${coverprofile}" ./...
