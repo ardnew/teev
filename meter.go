@@ -18,12 +18,13 @@ import (
 // Constructors also exist for read-only, write-only, and read-write Meters.
 // Methods without an underlying interface return [io.ErrClosedPipe].
 //
-// [Close] will close each underlying interface that implements [io.Closer].
+// Meter also implements the [io.Closer] interface.
+// Closing a Meter closes each underlying interface that implements [io.Closer].
 type Meter struct {
-	rCount atomic.Int64
-	wCount atomic.Int64
 	reader io.Reader
 	writer io.Writer
+	rCount atomic.Int64
+	wCount atomic.Int64
 }
 
 // NewMeter returns a new [Meter]
@@ -50,7 +51,7 @@ func NewReadWriteMeter(rw io.ReadWriter) *Meter {
 	return &Meter{reader: rw, writer: rw}
 }
 
-// Read writes the underlying [io.Reader] to p
+// Read writes bytes from the underlying [io.Reader] to p
 // and increments the total bytes read by n.
 //
 // See [io.Reader] for details.
@@ -63,7 +64,7 @@ func (m *Meter) Read(p []byte) (n int, err error) {
 	return
 }
 
-// ReadFrom copies from r to the underlying [io.Writer]
+// ReadFrom copies bytes from r to the underlying [io.Writer]
 // and increments the total bytes written by n.
 //
 // See [io.ReaderFrom] for details.
@@ -72,11 +73,11 @@ func (m *Meter) ReadFrom(r io.Reader) (n int64, err error) {
 		return 0, io.ErrClosedPipe
 	}
 	n, err = io.Copy(m.writer, r)
-	_ = m.IncWritten(n)
+	_ = m.IncWrite(n)
 	return
 }
 
-// Write writes p to the underlying [io.Writer]
+// Write writes bytes from p to the underlying [io.Writer]
 // and increments the total bytes written by n.
 //
 // See [io.Writer] for details.
@@ -85,11 +86,11 @@ func (m *Meter) Write(p []byte) (n int, err error) {
 		return 0, io.ErrClosedPipe
 	}
 	n, err = m.writer.Write(p)
-	_ = m.IncWritten(int64(n))
+	_ = m.IncWrite(int64(n))
 	return
 }
 
-// WriteTo copies from the underlying [io.Reader] to w
+// WriteTo copies bytes from the underlying [io.Reader] to w
 // and increments the total bytes read by n.
 //
 // See [io.WriterTo] for details.
@@ -104,7 +105,7 @@ func (m *Meter) WriteTo(w io.Writer) (n int64, err error) {
 
 // Count returns the total bytes read and written.
 func (m *Meter) Count() (r, w int64) {
-	return m.CountRead(), m.CountWritten()
+	return m.CountRead(), m.CountWrite()
 }
 
 // CountRead returns the total bytes read.
@@ -112,15 +113,15 @@ func (m *Meter) CountRead() int64 {
 	return m.rCount.Load()
 }
 
-// CountWritten returns the total bytes written.
-func (m *Meter) CountWritten() int64 {
+// CountWrite returns the total bytes written.
+func (m *Meter) CountWrite() int64 {
 	return m.wCount.Load()
 }
 
 // Inc increments the total bytes read and written by nr and nw, respectively,
 // and returns the new byte counts.
 func (m *Meter) Inc(nr, nw int64) (r, w int64) {
-	return m.IncRead(nr), m.IncWritten(nw)
+	return m.IncRead(nr), m.IncWrite(nw)
 }
 
 // IncRead increments the total bytes read by n
@@ -129,9 +130,9 @@ func (m *Meter) IncRead(n int64) int64 {
 	return m.rCount.Add(n)
 }
 
-// IncWritten increments the total bytes written by n
+// IncWrite increments the total bytes written by n
 // and returns the new byte count.
-func (m *Meter) IncWritten(n int64) int64 {
+func (m *Meter) IncWrite(n int64) int64 {
 	return m.wCount.Add(n)
 }
 

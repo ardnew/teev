@@ -54,7 +54,7 @@ func TestMeteredWriter_Write(t *testing.T) {
 	n, err := meteredWriter.Write(buf) //nolint: varnamelen
 	require.NoError(t, err)
 	require.Equal(t, num, n)
-	require.Equal(t, int64(num), meteredWriter.CountWritten())
+	require.Equal(t, int64(num), meteredWriter.CountWrite())
 	require.True(t, bytes.Equal(buf, testWriter.Bytes()))
 	missingWriter := valve.Meter{}
 	n, err = missingWriter.Write(buf)
@@ -71,7 +71,7 @@ func TestMeteredWriter_ReadFrom(t *testing.T) {
 	n, err := meteredWriter.ReadFrom(bytes.NewReader(buf)) //nolint: varnamelen
 	require.NoError(t, err)
 	require.Equal(t, int64(num), n)
-	require.Equal(t, int64(num), meteredWriter.CountWritten())
+	require.Equal(t, int64(num), meteredWriter.CountWrite())
 	require.True(t, bytes.Equal(buf, testWriter.Bytes()))
 	missingWriter := valve.Meter{}
 	n, err = missingWriter.ReadFrom(bytes.NewReader(buf))
@@ -100,9 +100,3 @@ func TestMeter(t *testing.T) {
 	err = readWriteMeter.Close()
 	require.NoError(t, err)
 }
-
-type mockReadWriteCloser struct{ rerr, werr, cerr error }
-
-func (m mockReadWriteCloser) Read([]byte) (int, error)  { return 0, m.rerr }
-func (m mockReadWriteCloser) Write([]byte) (int, error) { return 0, m.werr }
-func (m mockReadWriteCloser) Close() error              { return m.cerr }
