@@ -1,8 +1,8 @@
 module github.com/ardnew/valve
 
-go 1.22
+go 1.23
 
-toolchain go1.22.2
+toolchain go1.23.0
 
 require github.com/stretchr/testify v1.9.0
 
