@@ -54,8 +54,7 @@ jobs:
         go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}
     runs-on: |
       ${{ matrix.os }}-${{ matrix.version }}
-    name: |
-      ${{ env.configuration }}
+    name: ${{ env.configuration }}
 
     steps:
       - uses: actions/checkout@v4
