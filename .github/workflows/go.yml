@@ -52,10 +52,10 @@ jobs:
     env:
       configuration: |
         go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}
+    name: |
+      Go ${{ matrix.go }} (${{ matrix.os }}-${{ matrix.version }})
     runs-on: |
       ${{ matrix.os }}-${{ matrix.version }}
-    name: |
-      go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}
 
     steps:
       - uses: actions/checkout@v4
