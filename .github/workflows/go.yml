@@ -58,7 +58,7 @@ jobs:
           - version: latest
 
     env:
-      coverprofile: go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}.coverage.out
+      coverprofile: go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}.coverage.count
       testresults: go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}.testresults.json
 
     name: Go ${{ matrix.go }} (${{ matrix.os }}-${{ matrix.version }})
@@ -66,10 +66,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-            
+        with: { fetch-depth: 0 }
+
       - uses: actions/setup-go@v5
         with: { go-version: "${{ matrix.go }}" }
 
@@ -85,30 +83,8 @@ jobs:
         with:
           name: ${{ env.coverprofile }}
           path: ${{ env.coverprofile }}
-          
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.testresults }}
           path: ${{ env.testresults }}
-
-      - uses: tj-actions/coverage-badge-go@v2
-        with: 
-          filename: ${{ env.coverprofile }}
-
-      - uses: tj-actions/verify-changed-files@v16
-        id: verify
-        with: 
-          files: README.md
-
-      - if: steps.verify.outputs.files_changed == 'true'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add README.md
-          git commit -m "chore(doc): update coverage badge"
-
-      - if: steps.verify.outputs.files_changed == 'true'
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ github.token }}
-          branch: ${{ github.head_ref }}          
