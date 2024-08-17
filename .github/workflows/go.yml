@@ -64,6 +64,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-go@v5
         with: { go-version: "${{ matrix.go }}" }
 
@@ -73,18 +74,14 @@ jobs:
 
       - name: test-with-coverage
         run: |
-          declare -A arg=(
-            -json
-            -covermode=count
-            -coverprofile="${coverprofile}"
-          )
-          go test "${arg[@]}" > "${testresults}"
+          go test -json -covermode=count -coverprofile="${coverprofile}" > "${testresults}"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.testresults }}
-          path: ${{ env.testresults }}
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.coverprofile }}
           path: ${{ env.coverprofile }}
+          
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.testresults }}
+          path: ${{ env.testresults }}
