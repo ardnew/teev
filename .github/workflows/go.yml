@@ -1,5 +1,7 @@
 # Triggered on every push or pull request event to any branch.
-name: "test(any): all"
+name: main
+
+run-name: ${{ github.event_name }} to ${{ github.ref_name }} by @${{ github.actor }}
 
 on: 
   - push
