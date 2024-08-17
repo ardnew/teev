@@ -1,40 +1,43 @@
 # Triggered on every push or pull request event to any branch.
-name: |
-  test(any): all
+name: "test(any): all"
 
 on: 
   - push
   - pull_request
 
 jobs:
-  # Run `go list` to resolve the module's declared Go version
-  # and store the result in ${{ outputs.version }}.
-  go-mod-version:
-    runs-on: |
-      ubuntu-latest
-    outputs:
-      version: ${{ steps.list.outputs.version }}
+  # Run `go list` to resolve the module's declared Go language
+  # version and store the result in ${{ outputs.language }}.
+  #
+  # Run `go version` to resolve the Go toolchain version
+  # bundled with the `go` command being used and store the
+  # result in ${{ outputs.toolchain }}.
+  #
+  #   | See the following for details on Go versions:
+  #   |   https://tip.golang.org/doc/toolchain  
+  #
+  version:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with:
-          go-version-file: |
-            go.mod
-      # GoVersion may contain a complete version such as "1.20.1",
-      # or, if go.mod contains both "go" and "toolchain" specs,
-      # it may omit the patch and contain only "1.20". 
-      # Using "cut" below ensures the patch is always omitted.
-      - id: list
+        with: { go-version-file: go.mod }
+      - id: language
         run: |
-          go list -m -f 'version={{.GoVersion}}' | 
-            cut -sd. -f-2 >> "${GITHUB_OUTPUT}"
+          go list -m -f 'version={{.GoVersion}}' | cut -sd. -f-2 >> "${GITHUB_OUTPUT}"
+      - id: toolchain
+        run: |
+          echo "version=$( GOTOOLCHAIN=local go version | cut -sd' ' -f3 | cut -c3- )" >> "${GITHUB_OUTPUT}"
+    outputs:
+      language: ${{ steps.language.outputs.version }}
+      toolchain: ${{ steps.toolchain.outputs.version }}
 
   # Run all tests in all packages, and record coverages,
   # on latest versions of Ubuntu, macOS, and Windows
-  # using Go module version and other notable releases.
+  # using local module version and other notable releases.
   build:
     needs: 
-      - go-mod-version
+      - version
     strategy:
       matrix:
         os: 
@@ -44,37 +47,37 @@ jobs:
         go: 
           - '1.18'
           - '1.19'
-          - "${{ needs.go-mod-version.outputs.version }}"
-          - "${{ needs.go-mod-version.outputs.version }}.x"
-        include: 
+          - "${{ needs.version.outputs.language }}"
+          - "${{ needs.version.outputs.language }}.x"
+        include:
           - version: latest
 
     env:
-      configuration: |
-        go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}
-    name: |
-      Go ${{ matrix.go }} (${{ matrix.os }}-${{ matrix.version }})
-    runs-on: |
-      ${{ matrix.os }}-${{ matrix.version }}
+      configuration: go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}
+    name: Go ${{ matrix.go }} (${{ matrix.os }}-${{ matrix.version }})
+    runs-on: ${{ matrix.os }}-${{ matrix.version }}
 
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with: { go-version: "${{ matrix.go }}" }
 
-      - name: get
+      - name: get-dependencies
         run: |
           go get -v .
 
-      - name: test
+      - name: test-with-coverage
         run: |
           go test -json \
             -covermode=count \
             -coverprofile="${configuration}.coverage.out" > 
               "${configuration}.testresults.json"
 
-      - name: put
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.configuration }}"
+          name: "${{ env.configuration }}.testresults"
           path: "${{ env.configuration }}.testresults.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "${{ env.configuration }}.coverage"
+          path: "${{ env.configuration }}.coverage.out"          
