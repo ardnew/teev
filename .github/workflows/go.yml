@@ -5,6 +5,9 @@ on:
   - push
   - pull_request
 
+defaults:
+  run: { shell: bash }
+
 jobs:
   # Run `go list` to resolve the module's declared Go language
   # version and store the result in ${{ outputs.language }}.
@@ -27,7 +30,8 @@ jobs:
           go list -m -f 'version={{.GoVersion}}' | cut -sd. -f-2 >> "${GITHUB_OUTPUT}"
       - id: toolchain
         run: |
-          echo "version=$( GOTOOLCHAIN=local go version | cut -sd' ' -f3 | cut -c3- )" >> "${GITHUB_OUTPUT}"
+          version=$( GOTOOLCHAIN=local go version | cut -sd' ' -f3 | cut -c3- )
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
     outputs:
       language: ${{ steps.language.outputs.version }}
       toolchain: ${{ steps.toolchain.outputs.version }}
@@ -53,7 +57,9 @@ jobs:
           - version: latest
 
     env:
-      configuration: go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}
+      coverprofile: go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}.coverage.out
+      testresults: go${{ matrix.go }}-${{ matrix.os }}-${{ matrix.version }}.testresults.json
+
     name: Go ${{ matrix.go }} (${{ matrix.os }}-${{ matrix.version }})
     runs-on: ${{ matrix.os }}-${{ matrix.version }}
 
@@ -68,16 +74,18 @@ jobs:
 
       - name: test-with-coverage
         run: |
-          go test -json \
-            -covermode=count \
-            -coverprofile="${configuration}.coverage.out" > 
-              "${configuration}.testresults.json"
+          declare -A arg=(
+            -json
+            -covermode=count
+            -coverprofile="${coverprofile}"
+          )
+          go test "${arg[@]}" > "${testresults}"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.configuration }}.testresults"
-          path: "${{ env.configuration }}.testresults.json"
+          name: ${{ env.testresults }}
+          path: ${{ env.testresults }}
       - uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.configuration }}.coverage"
-          path: "${{ env.configuration }}.coverage.out"          
+          name: ${{ env.coverprofile }}
+          path: ${{ env.coverprofile }}
