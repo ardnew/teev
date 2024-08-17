@@ -49,8 +49,7 @@ jobs:
           - macos
           - windows
         go: 
-          - '1.18'
-          - '1.19'
+          - '1.21'
           - "${{ needs.version.outputs.language }}"
           - "${{ needs.version.outputs.language }}.x"
         include:
