@@ -93,7 +93,7 @@ jobs:
         with: 
           filename: ${{ env.coverprofile }}
 
-      - uses: tj-actions/verify-changed-files@v16
+      - uses: tj-actions/verify-changed-files@v17
         id: verify
         with: 
           files: README.md
