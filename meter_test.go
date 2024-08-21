@@ -2,6 +2,7 @@ package valve_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 
@@ -9,94 +10,284 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMeteredReader_Read(t *testing.T) {
+//nolint: gochecknoglobals
+var (
+	meterSrcBuf = []byte("Hello, World!")
+	meterSrcLen = len(meterSrcBuf)
+)
+
+func TestMeter_Read(t *testing.T) {
 	t.Parallel()
-	buf := []byte("Hello, World!")
-	num := len(buf)
-	testReader := bytes.NewBuffer(buf)
-	meteredReader := valve.NewReadMeter(testReader)
-	testBuffer := make([]byte, num)
-	n, err := meteredReader.Read(testBuffer) //nolint: varnamelen
+
+	reader := valve.NewReadMeter(bytes.NewReader(meterSrcBuf))
+	buffer := make([]byte, meterSrcLen)
+	n, err := reader.Read(buffer)
+
 	require.NoError(t, err)
-	require.Equal(t, num, n)
-	require.Equal(t, int64(num), meteredReader.CountRead())
-	require.True(t, bytes.Equal(buf, testBuffer))
-	missingReader := valve.Meter{}
-	n, err = missingReader.Read(buf)
+	require.Equal(t, meterSrcLen, n)
+	require.Equal(t, int64(meterSrcLen), reader.CountRead())
+	require.True(t, bytes.Equal(meterSrcBuf, buffer))
+}
+
+func TestMeter_ReadWithoutConstructor(t *testing.T) {
+	t.Parallel()
+
+	reader := valve.Meter{Reader: bytes.NewReader(meterSrcBuf)}
+	buffer := make([]byte, meterSrcLen)
+	n, err := reader.Read(buffer)
+
+	require.NoError(t, err)
+	require.Equal(t, meterSrcLen, n)
+	require.Equal(t, int64(meterSrcLen), reader.CountRead())
+	require.True(t, bytes.Equal(meterSrcBuf, buffer))
+}
+
+func TestMeter_ReadWithoutReader(t *testing.T) {
+	t.Parallel()
+
+	reader := valve.Meter{}
+	buffer := make([]byte, meterSrcLen)
+	n, err := reader.Read(buffer)
+
 	require.ErrorIs(t, err, io.ErrClosedPipe)
 	require.Zero(t, n)
 }
 
-func TestMeteredReader_WriteTo(t *testing.T) {
+func TestMeter_ReadFrom(t *testing.T) {
 	t.Parallel()
-	buf := []byte("Hello, World!")
-	num := len(buf)
-	testReader := bytes.NewBuffer(buf)
-	meteredReader := valve.NewReadMeter(testReader)
-	testBuffer := &bytes.Buffer{}
-	n, err := meteredReader.WriteTo(testBuffer) //nolint: varnamelen
+
+	buffer := &bytes.Buffer{}
+	writer := valve.NewWriteMeter(buffer)
+	n, err := writer.ReadFrom(bytes.NewReader(meterSrcBuf))
+
 	require.NoError(t, err)
-	require.Equal(t, int64(num), n)
-	require.Equal(t, int64(num), meteredReader.CountRead())
-	require.True(t, bytes.Equal(buf, testBuffer.Bytes()))
-	missingReader := valve.Meter{}
-	n, err = missingReader.WriteTo(testBuffer)
+	require.Equal(t, int64(meterSrcLen), n)
+	require.Equal(t, int64(meterSrcLen), writer.CountWrite())
+	require.True(t, bytes.Equal(meterSrcBuf, buffer.Bytes()))
+}
+
+func TestMeter_ReadFromWithoutConstructor(t *testing.T) {
+	t.Parallel()
+
+	buffer := &bytes.Buffer{}
+	writer := valve.Meter{Writer: buffer}
+	n, err := writer.ReadFrom(bytes.NewReader(meterSrcBuf))
+
+	require.NoError(t, err)
+	require.Equal(t, int64(meterSrcLen), n)
+	require.Equal(t, int64(meterSrcLen), writer.CountWrite())
+	require.True(t, bytes.Equal(meterSrcBuf, buffer.Bytes()))
+}
+
+func TestMeter_ReadFromWithoutWriter(t *testing.T) {
+	t.Parallel()
+
+	writer := valve.Meter{}
+	n, err := writer.ReadFrom(bytes.NewReader(meterSrcBuf))
+
 	require.ErrorIs(t, err, io.ErrClosedPipe)
 	require.Zero(t, n)
 }
 
-func TestMeteredWriter_Write(t *testing.T) {
+func TestMeter_Write(t *testing.T) {
 	t.Parallel()
-	buf := []byte("Hello, World!")
-	num := len(buf)
-	testWriter := &bytes.Buffer{}
-	meteredWriter := valve.NewWriteMeter(testWriter)
-	n, err := meteredWriter.Write(buf) //nolint: varnamelen
+
+	buffer := &bytes.Buffer{}
+	writer := valve.NewWriteMeter(buffer)
+	n, err := writer.Write(meterSrcBuf)
+
 	require.NoError(t, err)
-	require.Equal(t, num, n)
-	require.Equal(t, int64(num), meteredWriter.CountWrite())
-	require.True(t, bytes.Equal(buf, testWriter.Bytes()))
-	missingWriter := valve.Meter{}
-	n, err = missingWriter.Write(buf)
+	require.Equal(t, meterSrcLen, n)
+	require.Equal(t, int64(meterSrcLen), writer.CountWrite())
+	require.True(t, bytes.Equal(meterSrcBuf, buffer.Bytes()))
+}
+
+func TestMeter_WriteWithoutConstructor(t *testing.T) {
+	t.Parallel()
+
+	buffer := &bytes.Buffer{}
+	writer := valve.Meter{Writer: buffer}
+	n, err := writer.Write(meterSrcBuf)
+
+	require.NoError(t, err)
+	require.Equal(t, meterSrcLen, n)
+	require.Equal(t, int64(meterSrcLen), writer.CountWrite())
+	require.True(t, bytes.Equal(meterSrcBuf, buffer.Bytes()))
+}
+
+func TestMeter_WriteWithoutWriter(t *testing.T) {
+	t.Parallel()
+
+	writer := valve.Meter{}
+	n, err := writer.Write(meterSrcBuf)
+
 	require.ErrorIs(t, err, io.ErrClosedPipe)
 	require.Zero(t, n)
 }
 
-func TestMeteredWriter_ReadFrom(t *testing.T) {
+func TestMeter_WriteTo(t *testing.T) {
 	t.Parallel()
-	buf := []byte("Hello, World!")
-	num := len(buf)
-	testWriter := &bytes.Buffer{}
-	meteredWriter := valve.NewWriteMeter(testWriter)
-	n, err := meteredWriter.ReadFrom(bytes.NewReader(buf)) //nolint: varnamelen
+
+	reader := valve.NewReadMeter(bytes.NewReader(meterSrcBuf))
+	buffer := &bytes.Buffer{}
+	n, err := reader.WriteTo(buffer)
+
 	require.NoError(t, err)
-	require.Equal(t, int64(num), n)
-	require.Equal(t, int64(num), meteredWriter.CountWrite())
-	require.True(t, bytes.Equal(buf, testWriter.Bytes()))
-	missingWriter := valve.Meter{}
-	n, err = missingWriter.ReadFrom(bytes.NewReader(buf))
+	require.Equal(t, int64(meterSrcLen), n)
+	require.Equal(t, int64(meterSrcLen), reader.CountRead())
+	require.True(t, bytes.Equal(meterSrcBuf, buffer.Bytes()))
+}
+
+func TestMeter_WriteToWithoutConstructor(t *testing.T) {
+	t.Parallel()
+
+	reader := valve.Meter{Reader: bytes.NewReader(meterSrcBuf)}
+	buffer := &bytes.Buffer{}
+	n, err := reader.WriteTo(buffer)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(meterSrcLen), n)
+	require.Equal(t, int64(meterSrcLen), reader.CountRead())
+	require.True(t, bytes.Equal(meterSrcBuf, buffer.Bytes()))
+}
+
+func TestMeter_WriteToWithoutReader(t *testing.T) {
+	t.Parallel()
+
+	reader := valve.Meter{}
+	buffer := &bytes.Buffer{}
+	n, err := reader.WriteTo(buffer)
+
 	require.ErrorIs(t, err, io.ErrClosedPipe)
 	require.Zero(t, n)
 }
 
-func TestMeter(t *testing.T) {
+func TestMeter_Close(t *testing.T) {
 	t.Parallel()
-	buf := []byte("Hello, World!")
-	num := len(buf)
-	meter := valve.NewMeter(
-		bytes.NewBuffer(buf),
-		&bytes.Buffer{},
-	)
-	n, err := io.Copy(meter, meter)
-	require.NoError(t, err)
-	require.Equal(t, int64(num), n)
-	nr, nw := meter.Count()
-	require.Equal(t, int64(num), nr)
-	require.Equal(t, int64(num), nw)
-	ir, iw := meter.Inc(-int64(num), +int64(num))
-	require.Zero(t, ir)
-	require.Equal(t, 2*int64(num), iw)
-	readWriteMeter := valve.NewReadWriteMeter(mockReadWriteCloser{})
-	err = readWriteMeter.Close()
-	require.NoError(t, err)
+
+	cerr := fmt.Errorf("close error: %w", io.EOF)
+	pass := valve.Meter{}
+	fail := valve.NewReadWriteMeter(makeMockCloser(cerr))
+
+	require.NoError(t, pass.Close())
+	require.ErrorIs(t, fail.Close(), cerr)
+}
+
+func TestMeter_Count(t *testing.T) {
+	t.Parallel()
+
+	count := makeMockBuffer()
+	meter := valve.NewMeter(count, count)
+	r, w := meter.Count()
+
+	require.Zero(t, r)
+	require.Zero(t, w)
+}
+
+func TestMeter_CountRead(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	count := meter.CountRead()
+
+	require.Zero(t, count)
+}
+
+func TestMeter_CountWrite(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	count := meter.CountWrite()
+
+	require.Zero(t, count)
+}
+
+func TestMeter_Inc(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	r, w := meter.AddCount(10, 20)
+
+	require.Equal(t, int64(10), r)
+	require.Equal(t, int64(20), w)
+}
+
+func TestMeter_IncRead(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	count := meter.AddCountRead(10)
+
+	require.Equal(t, int64(10), count)
+}
+
+func TestMeter_IncWrite(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	count := meter.AddCountWrite(20)
+
+	require.Equal(t, int64(20), count)
+}
+
+func TestMeter_Set(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	meter.SetCount(10, 20)
+	r, w := meter.Count()
+
+	require.Equal(t, int64(10), r)
+	require.Equal(t, int64(20), w)
+}
+
+func TestMeter_SetRead(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	meter.SetCountRead(10)
+	count := meter.CountRead()
+
+	require.Equal(t, int64(10), count)
+}
+
+func TestMeter_SetWrite(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	meter.SetCountWrite(20)
+	count := meter.CountWrite()
+
+	require.Equal(t, int64(20), count)
+}
+
+func TestMeter_Reset(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	meter.ResetCount()
+	r, w := meter.Count()
+
+	require.Zero(t, r)
+	require.Zero(t, w)
+}
+
+func TestMeter_ResetRead(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	meter.ResetCountRead()
+	count := meter.CountRead()
+
+	require.Zero(t, count)
+}
+
+func TestMeter_ResetWrite(t *testing.T) {
+	t.Parallel()
+
+	meter := valve.Meter{}
+	meter.ResetCountWrite()
+	count := meter.CountWrite()
+
+	require.Zero(t, count)
 }
